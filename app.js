@@ -4,6 +4,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const LS='skin-manual-pwa-v2';
 const dataURL=new URL('manual.json',document.baseURI).href;
 let db=null,items=[],idx=0,search='',drawer=false;
+const openChapters=new Set(),openSections=new Set();
 let langs=new Set(JSON.parse(localStorage.getItem(LS+'-langs')||'["ko","en"]'));
 let saved=new Set(JSON.parse(localStorage.getItem(LS+'-favorites')||'[]'));
 let installPrompt=null;
@@ -49,23 +50,84 @@ function render(){
  $('nextBtn').disabled=$('mobileNext').disabled=idx===items.length-1;
  renderToc();
 }
+function matchesToc(it,term){
+ if(!term)return true;
+ const chapter=db.chapterNames[String(it.chapter_no)]||'';
+ const section=db.sectionNames[it.section_id]||'';
+ return [it.id,title(it),it.answer_ko,chapter,section].join(' ').toLocaleLowerCase().includes(term);
+}
 function renderToc(){
- const term=search.toLocaleLowerCase();
+ if(!db)return;
+ const term=search.trim().toLocaleLowerCase();
+ const groups=new Map();
+ for(let i=0;i<items.length;i++){
+  const it=items[i];
+  if(!matchesToc(it,term))continue;
+  const ch=Number(it.chapter_no);
+  if(!groups.has(ch))groups.set(ch,new Map());
+  const sections=groups.get(ch);
+  const sectionId=String(it.section_id);
+  if(!sections.has(sectionId))sections.set(sectionId,[]);
+  sections.get(sectionId).push({it,i});
+ }
  let out='',shown=0;
  for(let ch=1;ch<=14;ch++){
-  const chap=items.map((it,i)=>({it,i})).filter(z=>z.it.chapter_no===ch&&(!term||[z.it.id,title(z.it),z.it.answer_ko,db.sectionNames[z.it.section_id]||''].join(' ').toLowerCase().includes(term)));
-  if(!chap.length)continue;shown+=chap.length;
-  out+='<div class="toc-chapter"><div class="toc-chapter-title">'+ch+'장 · '+esc(db.chapterNames[String(ch)]||'')+' <span>'+chap.length+'</span></div>';
-  let last='';
-  for(const {it,i} of chap){
-    if(last!==it.section_id){last=it.section_id;out+='<div class="toc-section">'+esc(db.sectionNames[it.section_id]||it.section_id)+'</div>'}
-    out+='<button class="toc-item '+(i===idx?'active':'')+'" data-idx="'+i+'"><small>'+esc(it.id)+(saved.has(it.id)?' ★':'')+'</small><span>'+esc(title(it))+'</span></button>';
+  const sections=groups.get(ch);
+  if(!sections)continue;
+  const count=[...sections.values()].reduce((n,rows)=>n+rows.length,0);
+  shown+=count;
+  const chapterOpen=openChapters.has(ch);
+  out+='<section class="toc-chapter">';
+  out+='<button type="button" class="toc-chapter-title" data-chapter="'+ch+'" aria-expanded="'+chapterOpen+'" aria-controls="toc-chapter-'+ch+'">';
+  out+='<span class="toc-chevron" aria-hidden="true">▸</span><span class="toc-label">'+ch+'장 · '+esc(db.chapterNames[String(ch)]||'')+'</span><span class="toc-count">'+count+'</span></button>';
+  out+='<div class="toc-chapter-contents" id="toc-chapter-'+ch+'" '+(chapterOpen?'':'hidden')+'>';
+  let sectionNum=0;
+  for(const [sectionId,rows] of sections){
+   const sectionOpen=openSections.has(sectionId);
+   const sectionHtmlId='toc-section-'+ch+'-'+(++sectionNum);
+   out+='<div class="toc-section-group">';
+   out+='<button type="button" class="toc-section" data-section="'+esc(sectionId)+'" aria-expanded="'+sectionOpen+'" aria-controls="'+sectionHtmlId+'">';
+   out+='<span class="toc-chevron" aria-hidden="true">▸</span><span class="toc-label">'+esc(db.sectionNames[sectionId]||sectionId)+'</span><span class="toc-count">'+rows.length+'</span></button>';
+   out+='<div class="toc-section-contents" id="'+sectionHtmlId+'" '+(sectionOpen?'':'hidden')+'>';
+   for(const {it,i} of rows){
+    out+='<button type="button" class="toc-item '+(i===idx?'active':'')+'" data-idx="'+i+'" '+(i===idx?'aria-current="true"':'')+'><small>'+esc(it.id)+(saved.has(it.id)?' ★':'')+'</small><span>'+esc(title(it))+'</span></button>';
+   }
+   out+='</div></div>';
   }
-  out+='</div>';
+  out+='</div></section>';
  }
  $('toc').innerHTML=out||'<p class="no-results">검색 결과가 없습니다.</p>';
  $('totalBadge').textContent=term?shown+' ITEMS':'14 CHAPTERS';
- $('toc').querySelectorAll('[data-idx]').forEach(b=>b.addEventListener('click',()=>setItem(Number(b.dataset.idx))));
+}
+function toggleToc(e){
+ const chapter=e.target.closest('[data-chapter]');
+ if(chapter){
+  const ch=Number(chapter.dataset.chapter);
+  openChapters.has(ch)?openChapters.delete(ch):openChapters.add(ch);
+  renderToc();return;
+ }
+ const section=e.target.closest('[data-section]');
+ if(section){
+  const id=section.dataset.section;
+  openSections.has(id)?openSections.delete(id):openSections.add(id);
+  renderToc();return;
+ }
+ const item=e.target.closest('[data-idx]');
+ if(item)setItem(Number(item.dataset.idx));
+}
+function searchToc(value){
+ search=value;
+ openChapters.clear();openSections.clear();
+ const term=search.trim().toLocaleLowerCase();
+ if(term){
+  for(const it of items){
+   if(matchesToc(it,term)){
+    openChapters.add(Number(it.chapter_no));
+    openSections.add(String(it.section_id));
+   }
+  }
+ }
+ renderToc();
 }
 function menu(open){drawer=open;$('sidebar').classList.toggle('open',open);$('backdrop').hidden=!open}
 function closeMenu(){menu(false)}
@@ -81,7 +143,8 @@ async function sync(){
 }
 document.addEventListener('DOMContentLoaded',()=>{
  $('syncBtn').addEventListener('click',()=>sync().then(ok=>{if(ok)notify('최신 매뉴얼을 불러왔습니다.')}));
- $('searchBox').addEventListener('input',e=>{search=e.target.value;renderToc()});
+ $('toc').addEventListener('click',toggleToc);
+ $('searchBox').addEventListener('input',e=>searchToc(e.target.value));
  $('languages').querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>{const l=b.dataset.lang;langs.has(l)?langs.delete(l):langs.add(l);if(!langs.size)langs.add('ko');document.querySelectorAll('[data-lang]').forEach(x=>{const on=langs.has(x.dataset.lang);x.classList.toggle('selected',on);x.setAttribute('aria-pressed',String(on))});stateSave();render()}));
  document.querySelectorAll('[data-lang]').forEach(x=>x.classList.toggle('selected',langs.has(x.dataset.lang)));
  for(const [n,delta] of [['prevBtn',-1],['nextBtn',1],['mobilePrev',-1],['mobileNext',1]])$(n).addEventListener('click',()=>setItem(idx+delta));
