@@ -43,6 +43,14 @@
       </aside>
       <div id="backdrop" class="backdrop" hidden></div>
       <main class="main-area" id="main">
+        <nav class="page-navigation" aria-label="문답 페이지 이동">
+          <div class="page-navigation-inner">
+            <button id="prevBtn" class="page-btn" disabled>← 이전 문답</button>
+            <span id="navPosition" class="page-navigation-position">— / 462</span>
+            <button id="nextBtn" class="page-btn" disabled>다음 문답 →</button>
+          </div>
+        </nav>
+        <div id="readingScroll" class="reading-scroll">
         <section class="reading-head">
           <div class="bread-row"><span id="crumb" class="crumb">제1장</span><span id="position" class="position">— / 462</span></div>
           <div class="heading-row"><div><div id="eyebrow" class="content-kind">MEDICAL CONVERSATION</div><h1 id="itemHeading">클라우드 데이터를 불러오는 중입니다.</h1></div><button id="bookmarkBtn" class="bookmark-btn" title="현재 문답 즐겨찾기" aria-label="즐겨찾기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg></button></div>
@@ -50,10 +58,10 @@
           <div class="reading-controls"><div id="languages" class="languages" aria-label="언어 선택"><button class="lang-btn selected" data-lang="ko" aria-pressed="true">KR <span>한국어</span></button><button class="lang-btn selected" data-lang="en" aria-pressed="true">EN <span>English</span></button><button class="lang-btn" data-lang="zh" aria-pressed="false">CN <span>中文</span></button><button class="lang-btn" data-lang="ja" aria-pressed="false">JP <span>日本語</span></button></div><span class="language-help">동시에 여러 언어를 볼 수 있습니다</span></div>
         </section>
         <section id="readings" class="readings" aria-live="polite"><div class="empty-state"><span class="spinner"></span><p>462개 문답과 카드의 최신 데이터를 확인하고 있습니다.</p></div></section>
-        <footer class="reading-footer"><div id="dataFoot" class="data-foot">원본 DB: 클라우드 JSON · 최종 임상/원어민 감수 전 작업본</div><div class="reading-pagination"><button id="prevBtn" class="page-btn" disabled>← 이전 문답</button><button id="nextBtn" class="page-btn" disabled>다음 문답 →</button></div></footer>
+        <footer class="reading-footer"><div id="dataFoot" class="data-foot">원본 DB: 클라우드 JSON · 최종 임상/원어민 감수 전 작업본</div></footer>
+        </div>
       </main>
     </div>
-    <nav class="mobile-bottom" aria-label="모바일 문답 이동"><button id="mobilePrev" title="이전 문답">← 이전</button><button id="mobileToc" title="전체 목차">☷ 목차</button><button id="mobileNext" title="다음 문답">다음 →</button></nav>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <dialog id="installDialog" class="install-dialog"><div class="dialog-title"><img src="./icon.svg" width="42" height="42" alt=""><div><strong>앱 설치 방법</strong><small>무료 · 하나의 주소 · 여러 기기</small></div></div><div id="installInstructions"></div><button id="closeInstall" class="dialog-close">확인</button></dialog>
