@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="./styles.css">
   <title>피부한의원의 외국인 진료 매뉴얼</title>
   <script src="./app.js" defer></script>
+  <script src="./editor.js" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -27,6 +28,8 @@
       <div class="header-actions">
         <div id="cloudState" class="cloud-indicator" role="status" aria-live="polite"><span class="state-dot"></span><span id="cloudText">클라우드 확인 중</span></div>
         <button id="syncBtn" class="toolbar-btn" title="클라우드 최신 데이터 확인"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.9 8.4A7 7 0 0 1 18 7l2 5M4 12l2 5a7 7 0 0 0 12.1-1.4"/></svg><span>동기화</span></button>
+        <button id="editBtn" class="toolbar-btn" title="현재 문답 또는 카드 수정">편집</button>
+        <button id="publishBtn" class="toolbar-btn" title="검토 승인된 변경사항" disabled>저장대기<span id="pendingEdits"></span></button>
         <button id="installBtn" class="toolbar-btn primary" title="기기에 설치"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v3h16v-3"/></svg><span>설치</span></button>
       </div>
     </header>
@@ -63,6 +66,33 @@
       </main>
     </div>
   </div>
+  <dialog id="editDialog" class="edit-dialog" aria-labelledby="editTitle">
+    <div class="edit-head">
+      <div><strong id="editTitle">매뉴얼 편집</strong><p>한국어 원문 → 영·중·일 번역 → 직접 검토 → 승인 및 저장</p></div>
+      <button type="button" id="editClose" class="edit-icon-close" aria-label="편집 창 닫기">✕</button>
+    </div>
+    <div id="editMessage" class="edit-message" role="status" aria-live="polite"></div>
+    <div id="editContents" class="edit-contents"></div>
+    <div class="edit-controls">
+      <button type="button" id="editBack" class="edit-secondary">← 한국어로 돌아가기</button>
+      <button type="button" id="editNext" class="edit-primary">번역 비교·검토 →</button>
+      <button type="button" id="editTranslate" class="edit-primary" hidden>영·중·일 번역 초안 생성</button>
+      <button type="button" id="editApprove" class="edit-primary" hidden>검토 승인 · 기기에 저장</button>
+    </div>
+    <details class="edit-settings">
+      <summary>번역·클라우드 저장 설정</summary>
+      <label>Gemini API 키 <input id="geminiKey" type="password" placeholder="입력 시 AI 번역 생성" autocomplete="off" spellcheck="false"></label>
+      <p>키가 없으면 지원되는 데스크톱 브라우저에서 기기 내 자동번역을 시도합니다. 기기 번역은 병음·후리가나를 생성하지 않습니다. API 키는 저장하지 않습니다.</p>
+      <label>GitHub 저장 토큰 <input id="githubToken" type="password" placeholder="저장소 Contents 쓰기 권한" autocomplete="off" spellcheck="false"></label>
+      <p>GitHub의 alpakablanc/skin-clinic-manual 저장소에 한정된 Fine-grained 토큰(Contents: Read and write)을 사용합니다. 토큰은 서버나 기기에 저장하지 않고 현재 탭에서만 사용합니다.</p>
+    </details>
+    <div class="edit-utilities">
+      <button type="button" id="editDelete" class="edit-danger">현재 문답 삭제</button>
+      <button type="button" id="editPending" class="edit-secondary">승인·삭제 대기 목록</button>
+      <button type="button" id="editBackup" class="edit-secondary">전체 수정본 JSON 다운로드</button>
+      <button type="button" id="editPublish" class="edit-primary">GitHub 클라우드에 반영</button>
+    </div>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <dialog id="installDialog" class="install-dialog"><div class="dialog-title"><img src="./icon.svg" width="42" height="42" alt=""><div><strong>앱 설치 방법</strong><small>무료 · 하나의 주소 · 여러 기기</small></div></div><div id="installInstructions"></div><button id="closeInstall" class="dialog-close">확인</button></dialog>
 </body>
