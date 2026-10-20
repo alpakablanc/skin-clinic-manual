@@ -3,6 +3,35 @@ const EDIT_KEY=LS+'-approved-patches';
 let patches={};
 try{patches=JSON.parse(localStorage.getItem(EDIT_KEY)||'{}')}catch(_){patches={}}
 let draft=null,sourceItem=null,editStage='ko',editBusy=false;
+const GEMINI_PERSIST=LS+'-gemini-api-key-local';
+const GEMINI_SESSION=LS+'-gemini-api-key-session';
+function translationKey(){return $('geminiKey').value.trim()}
+function updateTranslationStatus(){
+ const key=translationKey(),status=$('translationStatus');
+ status.textContent=key?'API 키 입력됨 · 자동 번역 준비':'처음 한 번 API 키를 연결하세요';
+ status.classList.toggle('ready',!!key);
+}
+function rememberTranslationKey(){
+ const key=translationKey();
+ if($('rememberGemini').checked&&key)localStorage.setItem(GEMINI_PERSIST,key);
+ else localStorage.removeItem(GEMINI_PERSIST);
+ if(key)sessionStorage.setItem(GEMINI_SESSION,key);
+ else sessionStorage.removeItem(GEMINI_SESSION);
+ updateTranslationStatus();
+}
+function initTranslationKey(){
+ const permanent=localStorage.getItem(GEMINI_PERSIST)||'';
+ $('geminiKey').value=permanent||sessionStorage.getItem(GEMINI_SESSION)||'';
+ $('rememberGemini').checked=!!permanent;
+ $('geminiKey').addEventListener('input',rememberTranslationKey);
+ $('rememberGemini').addEventListener('change',rememberTranslationKey);
+ updateTranslationStatus();
+}
+function requestTranslationKey(){
+ editMessage('자동 번역을 사용하려면 위의 무료 API 키 발급을 눌러 Google AI Studio 키를 발급하고 입력하세요. ChatGPT 구독과 별개이며, 키 연결 후 세 언어를 한 번에 채웁니다.');
+ $('translationSetup').classList.add('attention');
+ $('geminiKey').focus();
+}
 const editLanguages=['en','zh','ja'],editNames={en:'영어',zh:'중국어(병음)',ja:'일본어(후리가나)'};
 function elem(tag,attrs={},children=[]){
  const e=document.createElement(tag);
@@ -104,52 +133,59 @@ async function geminiDraft(key){
   method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
   body:JSON.stringify({contents:[{parts:[{text:prompt+'\n'+JSON.stringify(sourcePayload())}]}],generationConfig:{responseMimeType:'application/json',temperature:0.2}})
  });
- const d=await r.json();if(!r.ok)throw Error(d.error?.message||'AI API '+r.status);
+ const d=await r.json();
+ if(!r.ok){
+  const why=d.error?.message||'';
+  if([400,401,403].includes(r.status))throw Error('Gemini API 키 또는 사용 권한 문제 (HTTP '+r.status+'). '+why);
+  if(r.status===429)throw Error('Gemini API 요청 한도 초과입니다. 잠시 후 다시 시도하세요.');
+  throw Error('Gemini API '+r.status+': '+why);
+ }
  const output=d.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('');
- if(!output)throw Error('AI 응답이 비어 있습니다.');
+ if(!output)throw Error('Gemini 번역 응답이 비어 있습니다. 모델 출력 제한이나 차단을 확인하세요.');
  return JSON.parse(output.trim().replace(/^[\x60]{3}(?:json)?\s*/i,'').replace(/\s*[\x60]{3}$/,''));
 }
-async function browserDraft(){
- if(!window.Translator?.create)throw Error('이 브라우저는 기기 자동번역을 지원하지 않습니다. 데스크톱 Chrome 또는 Gemini API를 사용하세요.');
- const translated={};
+function verifyTranslation(result){
  for(const lang of editLanguages){
-  const instance=await Translator.create({sourceLanguage:'ko',targetLanguage:lang});
-  const tr=async s=>s?await instance.translate(s):'';
-  if(draft.type==='qa')translated[lang]={q:await tr(draft.question_ko),a:await tr(draft.answer_ko)};
-  else{
-   const rows=[];
-   for(const r of draft.rows)rows.push({label:await tr(r[0]),text:await tr(r[1])});
-   translated[lang]={title:await tr(draft.title_ko),rows};
-  }
-  instance.destroy?.();
- }
- return translated;
-}
-async function translateDraft(){
- if(editBusy)return;
- pullEditor();editBusy=true;$('editTranslate').disabled=true;editMessage('3개 언어 번역 초안을 생성하는 중입니다.');
- try{
-  const key=$('geminiKey').value.trim();
-  const result=key?await geminiDraft(key):await browserDraft();
-  for(const lang of editLanguages){
-   const trans=result[lang];
-   if(!trans)throw Error(lang+' 번역 누락');
-   if(draft.type==='qa'&&(!trans.q||!trans.a))throw Error(lang+' 질문·답변 누락');
-   if(draft.type==='card'&&(!trans.title||trans.rows?.length!==draft.rows.length))throw Error(lang+' 카드 항목 수 불일치');
-  }
-  for(const lang of editLanguages){
-   const trans=result[lang],prev=draft.translations[lang]||{};
-   if(draft.type==='qa'){
-    draft.translations[lang]={...prev,...trans};
-    if(lang==='zh'&&!trans.qp){draft.translations[lang].qp='';draft.translations[lang].ap=''}
-    if(lang==='ja'&&!trans.qr){draft.translations[lang].qr='';draft.translations[lang].ar=''}
-   }else{
-    draft.translations[lang]={...prev,...trans,rows:trans.rows.map((r,i)=>({...prev.rows?.[i],...r,...(lang==='zh'&&!r.pinyin?{pinyin:''}:{}),...(lang==='ja'&&!r.ruby?{ruby:''}:{})}))};
+  const t=result?.[lang];
+  if(!t||typeof t!=='object')throw Error(editNames[lang]+' 결과가 없습니다.');
+  if(draft.type==='qa'){
+   if(!t.q||!t.a)throw Error(editNames[lang]+' 질문·답변이 누락되었습니다.');
+   if(lang==='zh'&&(!t.qp||!t.ap))throw Error('중국어 병음(qp, ap)이 누락되었습니다.');
+   if(lang==='ja'&&(!t.qr||!t.ar))throw Error('일본어 후리가나(qr, ar)가 누락되었습니다.');
+  }else{
+   if(!t.title||!Array.isArray(t.rows)||t.rows.length!==draft.rows.length)throw Error(editNames[lang]+' 카드 항목이 일치하지 않습니다.');
+   for(const r of t.rows){
+    if(!r.label||!r.text)throw Error(editNames[lang]+' 카드 제목/설명 누락');
+    if(lang==='zh'&&!r.pinyin)throw Error('카드 중국어 병음 누락');
+    if(lang==='ja'&&!r.ruby)throw Error('카드 일본어 후리가나 누락');
    }
   }
-  editReview();editMessage(key?'AI 번역 초안 생성 완료. 의료 표현을 직접 검토하세요.':'기기 번역 생성 완료. 병음·후리가나는 수동으로 보완해야 합니다.');
- }catch(e){editMessage('번역 오류: '+e.message)}
- finally{editBusy=false;$('editTranslate').disabled=false}
+ }
+}
+async function translateDraft(){
+ if(editBusy||editStage!=='review')return;
+ const key=translationKey();
+ if(!key){requestTranslationKey();return}
+ pullEditor();
+ editBusy=true;$('editTranslate').disabled=true;$('editApprove').disabled=true;
+ editMessage('한국어 원문을 영어·중국어·일본어로 자동 번역하고 있습니다…');
+ try{
+  const result=await geminiDraft(key);
+  verifyTranslation(result);
+  const next=structuredClone(draft.translations||{});
+  for(const lang of editLanguages){
+   const t=result[lang],old=next[lang]||{};
+   if(draft.type==='qa')next[lang]={...old,...t};
+   else next[lang]={...old,...t,rows:t.rows.map((r,i)=>({...old.rows?.[i],...r}))};
+  }
+  draft.translations=next;
+  editReview();
+  $('editContents').scrollTop=0;
+  $('translationSetup').classList.remove('attention');
+  editMessage('영어·중국어·일본어 번역 초안을 자동으로 입력했습니다. 내용을 직접 검토한 뒤 언어별 확인란을 체크해 승인하세요.');
+ }catch(e){
+  editMessage('자동 번역 실패: '+e.message+' 기존 번역 내용은 유지됩니다.');
+ }finally{editBusy=false;$('editTranslate').disabled=false;$('editApprove').disabled=false}
 }
 function approveEdition(){
  try{
@@ -238,10 +274,11 @@ document.addEventListener('DOMContentLoaded',()=>{
  $('editBtn').onclick=editOpen;
  $('publishBtn').onclick=()=>{editOpen();pendingEditList()};
  $('editClose').onclick=()=>$('editDialog').close();
- $('editNext').onclick=()=>{try{pullEditor();validateKorean();editReview();editMessage('자동 번역 생성 또는 직접 수정 후 검토하세요.')}catch(e){editMessage(e.message)}};
+ $('editNext').onclick=()=>{try{pullEditor();validateKorean();editReview();if(translationKey())translateDraft();else requestTranslationKey()}catch(e){editMessage(e.message)}};
  $('editBack').onclick=()=>{if(editStage==='review'){pullEditor();editKorean()}else if(editStage==='pending'){editKorean()}};
  $('editTranslate').onclick=translateDraft;$('editApprove').onclick=approveEdition;
  $('editDelete').onclick=deleteEdition;$('editPending').onclick=pendingEditList;
  $('editPublish').onclick=cloudCommit;$('editBackup').onclick=editBackup;
+ initTranslationKey();
  updateEditCount();
 });
