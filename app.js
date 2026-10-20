@@ -35,7 +35,29 @@ function block(x,l){
  return html+'</div></article>';
 }
 function stateSave(){localStorage.setItem(LS+'-item',items[idx]?.id||'');localStorage.setItem(LS+'-langs',JSON.stringify([...langs]));localStorage.setItem(LS+'-favorites',JSON.stringify([...saved]))}
-function setItem(n){if(n<0||n>=items.length)return;idx=n;stateSave();render();closeMenu();$('main').scrollTop=0}
+function openCurrentToc(reset=false){
+ const current=items[idx];
+ if(!current)return;
+ if(reset){openChapters.clear();openSections.clear()}
+ openChapters.add(Number(current.chapter_no));
+ openSections.add(String(current.section_id));
+}
+function keepCurrentTocVisible(){
+ const toc=$('toc'),current=toc.querySelector('.toc-item.active');
+ if(!current)return;
+ const frame=toc.getBoundingClientRect(),box=current.getBoundingClientRect();
+ if(frame.height===0)return;
+ if(box.top<frame.top+12)toc.scrollTop+=box.top-frame.top-12;
+ else if(box.bottom>frame.bottom-12)toc.scrollTop+=box.bottom-frame.bottom+12;
+}
+function setItem(n){
+ if(n<0||n>=items.length)return;
+ idx=n;
+ const term=search.trim().toLocaleLowerCase();
+ if(term&&!matchesToc(items[idx],term)){search='';$('searchBox').value=''}
+ openCurrentToc(!search.trim());
+ stateSave();render();keepCurrentTocVisible();closeMenu();$('readingScroll').scrollTop=0;
+}
 function render(){
  if(!items.length)return;
  const x=items[idx],ch=db.chapterNames[String(x.chapter_no)]||'';
@@ -46,8 +68,9 @@ function render(){
  const c=$('caseContext');const ctx=x.context_ko||'';c.hidden=!ctx;c.textContent=ctx;
  $('bookmarkBtn').classList.toggle('saved',saved.has(x.id));
  $('readings').innerHTML=[...langs].sort((a,b)=>['ko','en','zh','ja'].indexOf(a)-['ko','en','zh','ja'].indexOf(b)).map(l=>block(x,l)).join('');
- $('prevBtn').disabled=$('mobilePrev').disabled=idx===0;
- $('nextBtn').disabled=$('mobileNext').disabled=idx===items.length-1;
+ $('prevBtn').disabled=idx===0;
+ $('nextBtn').disabled=idx===items.length-1;
+ $('navPosition').textContent=(idx+1)+' / '+items.length;
  renderToc();
 }
 function matchesToc(it,term){
@@ -126,7 +149,7 @@ function searchToc(value){
     openSections.add(String(it.section_id));
    }
   }
- }
+ }else openCurrentToc();
  renderToc();
 }
 function menu(open){drawer=open;$('sidebar').classList.toggle('open',open);$('backdrop').hidden=!open}
@@ -138,7 +161,7 @@ async function sync(){
  catch(e){offline=true;try{const r=await caches.match(dataURL);if(r)raw=await r.text()}catch(_){}}
  if(!raw){updateCloud('연결 필요');notify('처음 접속할 때는 인터넷 연결이 필요합니다.');return}
  try{const obj=JSON.parse(raw);if(!Array.isArray(obj.items)||obj.items.length!==462)throw Error('462개 항목 구조 불일치');
-  const id=items[idx]?.id||localStorage.getItem(LS+'-item');db=obj;items=obj.items;idx=Math.max(0,items.findIndex(x=>x.id===id));updateCloud(offline?'오프라인 저장본':'클라우드 최신');render();return true;
+  const id=items[idx]?.id||localStorage.getItem(LS+'-item');db=obj;items=obj.items;idx=Math.max(0,items.findIndex(x=>x.id===id));openCurrentToc(!search.trim());updateCloud(offline?'오프라인 저장본':'클라우드 최신');render();keepCurrentTocVisible();return true;
  }catch(e){updateCloud('데이터 오류');notify('데이터 오류: '+e.message);return false}
 }
 document.addEventListener('DOMContentLoaded',()=>{
@@ -147,9 +170,9 @@ document.addEventListener('DOMContentLoaded',()=>{
  $('searchBox').addEventListener('input',e=>searchToc(e.target.value));
  $('languages').querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>{const l=b.dataset.lang;langs.has(l)?langs.delete(l):langs.add(l);if(!langs.size)langs.add('ko');document.querySelectorAll('[data-lang]').forEach(x=>{const on=langs.has(x.dataset.lang);x.classList.toggle('selected',on);x.setAttribute('aria-pressed',String(on))});stateSave();render()}));
  document.querySelectorAll('[data-lang]').forEach(x=>x.classList.toggle('selected',langs.has(x.dataset.lang)));
- for(const [n,delta] of [['prevBtn',-1],['nextBtn',1],['mobilePrev',-1],['mobileNext',1]])$(n).addEventListener('click',()=>setItem(idx+delta));
+ for(const [n,delta] of [['prevBtn',-1],['nextBtn',1]])$(n).addEventListener('click',()=>setItem(idx+delta));
  $('bookmarkBtn').addEventListener('click',()=>{const id=items[idx].id;saved.has(id)?saved.delete(id):saved.add(id);stateSave();render();notify(saved.has(id)?'즐겨찾기 저장':'즐겨찾기 해제')});
- $('menuBtn').addEventListener('click',()=>menu(true));$('mobileToc').addEventListener('click',()=>menu(true));$('backdrop').addEventListener('click',closeMenu);
+ $('menuBtn').addEventListener('click',()=>{menu(true);keepCurrentTocVisible()});$('backdrop').addEventListener('click',closeMenu);
  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('searchBox').focus()}});
  $('installBtn').addEventListener('click',async()=>{
   if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;return}
