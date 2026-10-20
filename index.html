@@ -72,17 +72,24 @@
       <button type="button" id="editClose" class="edit-icon-close" aria-label="편집 창 닫기">✕</button>
     </div>
     <div id="editMessage" class="edit-message" role="status" aria-live="polite"></div>
+    <section id="translationSetup" class="translation-setup" aria-label="자동 번역 연결">
+      <div class="translation-setup-title"><strong>영·중·일 AI 자동 번역</strong><span id="translationStatus">처음 한 번 API 키를 연결하세요</span></div>
+      <div class="translation-key-row">
+        <input id="geminiKey" type="password" placeholder="Google Gemini API 키 입력 (최초 1회)" autocomplete="off" spellcheck="false" aria-label="Gemini API 키" />
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">무료 API 키 발급 ↗</a>
+      </div>
+      <label class="translation-remember"><input id="rememberGemini" type="checkbox" /> 이 브라우저에 키 기억하기 (개인 기기에서만)</label>
+      <p>한국어 수정 후 버튼 한 번으로 영어·중국어(병음)·일본어(후리가나) 번역이 자동 입력됩니다. 환자 개인정보는 입력하지 마세요. 키를 기억하면 이 기기에 암호화 없이 보관됩니다.</p>
+    </section>
     <div id="editContents" class="edit-contents"></div>
     <div class="edit-controls">
       <button type="button" id="editBack" class="edit-secondary">← 한국어로 돌아가기</button>
-      <button type="button" id="editNext" class="edit-primary">번역 비교·검토 →</button>
-      <button type="button" id="editTranslate" class="edit-primary" hidden>영·중·일 번역 초안 생성</button>
+      <button type="button" id="editNext" class="edit-primary">영·중·일 자동 번역 →</button>
+      <button type="button" id="editTranslate" class="edit-primary" hidden>↻ 영·중·일 번역 다시 생성</button>
       <button type="button" id="editApprove" class="edit-primary" hidden>검토 승인 · 기기에 저장</button>
     </div>
     <details class="edit-settings">
-      <summary>번역·클라우드 저장 설정</summary>
-      <label>Gemini API 키 <input id="geminiKey" type="password" placeholder="입력 시 AI 번역 생성" autocomplete="off" spellcheck="false"></label>
-      <p>키가 없으면 지원되는 데스크톱 브라우저에서 기기 내 자동번역을 시도합니다. 기기 번역은 병음·후리가나를 생성하지 않습니다. API 키는 저장하지 않습니다.</p>
+      <summary>GitHub 클라우드 저장 설정</summary>
       <label>GitHub 저장 토큰 <input id="githubToken" type="password" placeholder="저장소 Contents 쓰기 권한" autocomplete="off" spellcheck="false"></label>
       <p>GitHub의 alpakablanc/skin-clinic-manual 저장소에 한정된 Fine-grained 토큰(Contents: Read and write)을 사용합니다. 토큰은 서버나 기기에 저장하지 않고 현재 탭에서만 사용합니다.</p>
     </details>
