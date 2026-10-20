@@ -160,8 +160,8 @@ async function sync(){
  try{const r=await fetch(dataURL,{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);raw=await r.text();const c=await caches.open('manual-offline-v1');await c.put(dataURL,new Response(raw,{headers:{'Content-Type':'application/json'}}))}
  catch(e){offline=true;try{const r=await caches.match(dataURL);if(r)raw=await r.text()}catch(_){}}
  if(!raw){updateCloud('연결 필요');notify('처음 접속할 때는 인터넷 연결이 필요합니다.');return}
- try{const obj=JSON.parse(raw);if(!Array.isArray(obj.items)||obj.items.length!==462)throw Error('462개 항목 구조 불일치');
-  const id=items[idx]?.id||localStorage.getItem(LS+'-item');db=obj;items=obj.items;idx=Math.max(0,items.findIndex(x=>x.id===id));openCurrentToc(!search.trim());updateCloud(offline?'오프라인 저장본':'클라우드 최신');render();keepCurrentTocVisible();return true;
+ try{const obj=JSON.parse(raw);if(!Array.isArray(obj.items)||obj.items.length<1)throw Error('매뉴얼 항목이 없습니다.');
+  const id=items[idx]?.id||localStorage.getItem(LS+'-item');db=obj;applyApprovedEdits();if(!items.length)throw Error('모든 항목 삭제 불가');idx=Math.max(0,items.findIndex(x=>x.id===id));openCurrentToc(!search.trim());updateCloud(offline?'오프라인 저장본':'클라우드 최신');render();keepCurrentTocVisible();return true;
  }catch(e){updateCloud('데이터 오류');notify('데이터 오류: '+e.message);return false}
 }
 document.addEventListener('DOMContentLoaded',()=>{
