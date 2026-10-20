@@ -73,5 +73,5 @@
  .header-actions{gap:3px}
  .header-actions .toolbar-btn{padding:7px 6px}
  .brand-wordmark .brand-sub{display:none}
- @media(max-width:420px){.brand-icon{display:none}}
 }
+@media(max-width:420px){.brand-icon{display:none}}
