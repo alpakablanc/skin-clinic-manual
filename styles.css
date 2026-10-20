@@ -69,5 +69,9 @@
  .edit-head{padding:14px}.edit-contents{padding:12px;max-height:47dvh}
  .edit-message{padding:8px 12px}.edit-controls{padding:10px 12px}
  .edit-settings{margin:0 12px}.edit-utilities{padding:12px}
- .header-actions #installBtn{display:none}
+ .header-actions #installBtn{display:inline-flex}
+ .header-actions{gap:3px}
+ .header-actions .toolbar-btn{padding:7px 6px}
+ .brand-wordmark .brand-sub{display:none}
+ @media(max-width:420px){.brand-icon{display:none}}
 }
