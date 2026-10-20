@@ -34,6 +34,7 @@ function editOpen(){
 }
 function editKorean(){
  editStage='ko';$('editTitle').textContent='한국어 원문 수정 · '+draft.id;
+ $('editDelete').hidden=false;
  const host=$('editContents');host.replaceChildren();
  if(draft.type==='qa'){
   host.append(textarea('한국어 질문',draft.question_ko,'question_ko'));
@@ -174,6 +175,7 @@ function deleteEdition(){
 }
 function pendingEditList(){
  editStage='pending';$('editTitle').textContent='저장 대기 변경사항';
+ $('editDelete').hidden=true;
  const host=$('editContents');host.replaceChildren();
  $('editNext').hidden=true;$('editTranslate').hidden=true;$('editApprove').hidden=true;
  const entries=Object.entries(patches);
@@ -202,9 +204,13 @@ async function cloudCommit(){
   const response=await fetch(url+'?ref=main',{headers:hdr,cache:'no-store'});
   if(!response.ok)throw Error('GitHub 권한 오류 '+response.status);
   const meta=await response.json();
-  const file=await fetch(dataURL,{cache:'no-store'});
-  if(!file.ok)throw Error('최신 원본 다운로드 실패');
-  const cloud=await file.json();
+  const blobResponse=await fetch('https://api.github.com/repos/alpakablanc/skin-clinic-manual/git/blobs/'+meta.sha,{headers:hdr,cache:'no-store'});
+  if(!blobResponse.ok)throw Error('GitHub 최신 데이터 조회 실패 '+blobResponse.status);
+  const blob=await blobResponse.json();
+  if(blob.encoding!=='base64'||!blob.content)throw Error('GitHub 데이터 인코딩 오류');
+  const binary=atob(blob.content.replace(/\\s/g,''));
+  const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
+  const cloud=JSON.parse(new TextDecoder('utf-8').decode(bytes));
   for(const [id,p] of Object.entries(patches)){
    const before=cloud.items.find(x=>x.id===id);
    if(!before||JSON.stringify(before)!==JSON.stringify(p.base))throw Error(id+' 문답이 외부에서 변경되어 충돌했습니다.');
@@ -213,7 +219,10 @@ async function cloudCommit(){
   const pushed=await fetch(url,{method:'PUT',headers:{...hdr,'Content-Type':'application/json'},body:JSON.stringify({message:'Approved manual translations and edits',sha:meta.sha,branch:'main',content:encoded64(JSON.stringify(cloud,null,2))})});
   if(!pushed.ok){const e=await pushed.json().catch(()=>({}));throw Error(e.message||'GitHub HTTP '+pushed.status)}
   patches={};saveEditPatches();editMessage('GitHub 클라우드 저장 완료');
-  $('editDialog').close();notify('클라우드 저장 완료');await sync();
+  const selectedId=items[idx]?.id;
+  db=cloud;items=cloud.items;idx=Math.max(0,items.findIndex(x=>x.id===selectedId));
+  openCurrentToc(true);render();
+  $('editDialog').close();notify('클라우드 저장 완료. 다른 기기는 동기화하세요.');
  }catch(e){editMessage('클라우드 저장 실패: '+e.message+' (기기 승인본은 보존됨)')}
  finally{$('editPublish').disabled=false}
 }
