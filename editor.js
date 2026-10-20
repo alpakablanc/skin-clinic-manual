@@ -131,7 +131,7 @@ async function geminiDraft(key){
  const prompt='Translate this Korean clinical manual faithfully into fluent English, Simplified Mandarin and natural Japanese. Preserve all indications, warnings, numbers and uncertainty. Return only JSON with root en, zh, ja. For type qa: each has q,a; zh also qp,ap with Pinyin tone marks; ja also qr,ar with ruby HTML for furigana. For type card: each has title and rows of same length, each with label,text; Chinese rows additionally pinyin, Japanese rows additionally ruby with furigana. Japanese should be spoken JLPT N3 where possible. Never invent medical facts.';
  const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{
   method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
-  body:JSON.stringify({contents:[{parts:[{text:prompt+'\n'+JSON.stringify(sourcePayload())}]}],generationConfig:{responseMimeType:'application/json',temperature:0.2}})
+  body:JSON.stringify({contents:[{parts:[{text:prompt+'\n'+JSON.stringify(sourcePayload())}]}],generationConfig:{responseMimeType:'application/json',temperature:0.1,maxOutputTokens:16384}})
  });
  const d=await r.json();
  if(!r.ok){
