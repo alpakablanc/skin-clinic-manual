@@ -208,7 +208,7 @@ async function cloudCommit(){
   if(!blobResponse.ok)throw Error('GitHub 최신 데이터 조회 실패 '+blobResponse.status);
   const blob=await blobResponse.json();
   if(blob.encoding!=='base64'||!blob.content)throw Error('GitHub 데이터 인코딩 오류');
-  const binary=atob(blob.content.replace(/\\s/g,''));
+  const binary=atob(blob.content.replace(/\s/g,''));
   const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
   const cloud=JSON.parse(new TextDecoder('utf-8').decode(bytes));
   for(const [id,p] of Object.entries(patches)){
